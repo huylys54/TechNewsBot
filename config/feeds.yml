@@ -1,0 +1,209 @@
+# List of RSS feed URLs to fetch news from
+feeds:
+  - name: "TechCrunch"
+    url: "https://techcrunch.com/category/artificial-intelligence/feed/"
+  - name: "Ars Technica IT"
+    url: "https://arstechnica.com/information-technology/feed/"
+  - name: "Ars Technica AI"
+    url: "https://arstechnica.com/ai/feed/"
+  - name: "The Verge"
+    url: "https://www.theverge.com/rss/tech/index.xml"
+  - name: "Wired - General Tech"
+    url: "https://www.wired.com/feed/category/science/rss"
+  - name: "IEEE Spectrum"
+    url: "https://spectrum.ieee.org/rss/fulltext"
+  - name: "ZDNet"
+    url: "https://www.zdnet.com/topic/artificial-intelligence/rss.xml"
+  - name: "VentureBeat"
+    url: "https://venturebeat.com/category/ai/feed/"
+
+# List of arXiv categories to fetch papers from (Computer Science focus)
+arxiv_categories:
+  - cs.AI # Artificial Intelligence
+  - cs.LG # Machine Learning
+  - cs.CR # Cryptography and Security
+  - cs.SE # Software Engineering
+  - cs.DB # Databases
+  - cs.DC # Distributed, Parallel, and Cluster Computing
+  - cs.SY # Systems and Control
+  - cs.CV # Computer Vision and Pattern Recognition
+  - cs.CL # Computation and Language (NLP)
+  - cs.DS # Data Structures and Algorithms
+
+# Hugging Face top papers configuration
+huggingface_papers:
+  enabled: true
+  url_template: "https://huggingface.co/papers/month/{year}-{month:02d}" # Will be formatted with current year-month
+  max_papers: 5 # Number of top papers to fetch from HF
+
+# Paper fetching configuration
+paper_settings:
+  max_recent_papers_per_category: 3 # For recent papers from each arXiv category
+  max_top_papers: 5 # For top papers from Hugging Face
+  days_back: 3 # How many days back to look for recent papers
+
+# Keywords for filtering tech news articles (IT & Computer Science focus)
+keywords:
+  # Core Computer Science
+  - algorithm
+  - algorithms
+  - computer science
+  - programming
+  - software engineering
+  - data structures
+  - computational
+  - computational complexity
+  - theoretical computer science
+
+  # Artificial Intelligence & Machine Learning
+  - AI
+  - artificial intelligence
+  - machine learning
+  - ML
+  - neural network
+  - neural networks
+  - deep learning
+  - natural language processing
+  - NLP
+  - computer vision
+  - LLM
+  - large language model
+  - transformer
+  - GPT
+  - ChatGPT
+  - robotics
+  - generative AI
+  - reinforcement learning
+  - AI ethics
+  - autonomous systems
+
+  # Software Development
+  - software
+  - software development
+  - programming language
+  - framework
+  - library
+  - web API
+  - SDK
+  - DevOps
+  - CI/CD
+  - version control
+  - git
+  - GitHub
+  - open source
+  - code
+  - coding
+  - developer
+  - Python
+  - Java
+  - C++
+  - Rust
+  - Go
+  - React
+  - Node.js
+  - Django
+  - agile development
+
+  # Systems & Infrastructure
+  - operating system
+  - Linux
+  - Windows
+  - Unix
+  - kernel
+  - system administration
+  - infrastructure
+  - server
+  - servers
+  - cloud computing
+  - AWS
+  - Azure
+  - Google Cloud
+  - containerization
+  - Docker
+  - Kubernetes
+  - microservices
+  - distributed systems
+  - serverless
+  - edge computing
+
+  # Databases & Data
+  - database
+  - databases
+  - SQL
+  - NoSQL
+  - data science
+  - big data
+  - data analysis
+  - data engineering
+  - analytics
+  - business intelligence
+  - data mining
+  - data warehouse
+  - data visualization
+  - TensorFlow
+  - PyTorch
+
+  # Networking & Security
+  - computer network
+  - networking
+  - cybersecurity
+  - information security
+  - infosec
+  - encryption
+  - cryptography
+  - firewall
+  - VPN
+  - TCP/IP
+  - internet protocol
+  - network security
+  - vulnerability
+  - hacking
+  - penetration testing
+  - 5G
+  - DNS
+
+  # Hardware & Systems
+  - CPU
+  - GPU
+  - processor
+  - semiconductor chip
+  - hardware
+  - computer hardware
+  - embedded systems
+  - IoT
+  - Internet of Things
+  - firmware
+  - FPGA
+  - microcontroller
+  - quantum computing
+  - qubit
+
+  # Web Technologies
+  - web development
+  - frontend
+  - backend
+  - full stack
+  - JavaScript
+  - TypeScript
+  - React
+  - Node.js
+  - web framework
+  - REST API
+  - GraphQL
+  - Angular
+  - Vue.js
+
+  # Enterprise & Tools
+  - enterprise software
+  - SaaS
+  - PaaS
+  - IaaS
+  - virtualization
+  - automation
+  - testing
+  - quality assurance
+  - performance optimization
+  - scalability
+  - load balancing
+  - blockchain
+  - cryptocurrency

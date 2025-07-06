@@ -1,0 +1,136 @@
+# Main configuration for Tech News Digest Bot
+
+# Digest generation settings
+digest_settings:
+  # Maximum number of news articles to fetch per digest
+  max_articles: 8
+
+  # Maximum number of research papers to fetch per digest
+  max_papers: 4
+
+  # Enable content processing (full text extraction)
+  enable_content_processing: true
+
+  # Enable AI-powered classification
+  enable_classification: true
+
+  # Enable AI-powered summarization
+  enable_summarization: true
+
+  # Enable notifications (Discord/Email)
+  enable_notifications: true
+
+  # Custom keywords for additional filtering (optional)
+  custom_keywords: []
+
+  # Time range for content fetching (days back)
+  days_back: 1
+
+# Scheduling configuration
+scheduling:
+  # Enable scheduled digest generation
+  enabled: true
+
+  # Cron expression for scheduling (minute hour day month day_of_week)
+  # Examples:
+  # "0 9 * * MON-SUN" - 9 AM on weekdays
+  # "0 8,18 * * *" - 8 AM and 6 PM daily
+  # "0 9 * * MON" - 9 AM on Mondays only
+  cron_expression: "33 14 * * *"
+
+  # Timezone for scheduling
+  timezone: "Asia/Saigon"
+
+  # Enable weekend digests
+  include_weekends: false
+
+  # Skip digest if no new content is found
+  skip_if_empty: true
+
+# Output and file management
+output:
+  # Save individual component files (articles, classifications, etc.)
+  save_individual_files: true
+
+  # Keep intermediate processing files
+  keep_intermediate_files: true
+
+  # Create backup copies of old files
+  backup_old_files: false
+
+  # Clean up files older than N days (0 = disabled)
+  cleanup_after_days: 7
+
+  # Compress old files
+  compress_old_files: false
+
+# Component-specific overrides
+component_overrides:
+  fetcher:
+    # Override default max items
+    max_articles: null
+    max_papers: null
+
+  classifier:
+    # Override classification settings
+    minimum_confidence: 0.1
+
+  summarizer:
+    # Override summarization settings
+    max_summary_length: 700
+
+  report_generator:
+    # Override report settings
+    max_items_per_category: 8
+
+  notifier:
+    # Override notification settings
+    discord_max_items: 4
+
+# Logging configuration
+logging:
+  # Log level (DEBUG, INFO, WARNING, ERROR)
+  level: "INFO"
+
+  # Enable file logging
+  file_logging: true
+
+  # Enable console logging
+  console_logging: true
+
+  # Log rotation (days)
+  rotate_after_days: 7
+
+  # Maximum log file size (MB)
+  max_file_size: 10
+
+# Error handling and recovery
+error_handling:
+  # Continue processing even if some steps fail
+  continue_on_error: true
+
+  # Maximum retry attempts for failed operations
+  max_retries: 3
+
+  # Retry delay (seconds)
+  retry_delay: 5
+
+  # Send error notifications
+  notify_on_error: false
+
+  # Emergency contact for critical errors
+  emergency_contact: ""
+
+# Development and testing
+development:
+  # Enable debug mode
+  debug_mode: false
+
+  # Use test data instead of live fetching
+  use_test_data: false
+
+  # Dry run mode (don't send actual notifications)
+  dry_run: false
+
+  # Save all intermediate data for debugging
+  save_debug_data: false

@@ -1,0 +1,124 @@
+# Notification configuration for tech news digests
+
+# Discord webhook settings
+discord:
+  # Enable Discord notifications
+  enabled: true
+
+  # Bot display name in Discord
+  username: "Tech News Bot"
+
+  # Bot avatar URL (optional)
+  avatar_url: ""
+
+  # Maximum message length (Discord limit is 2000)
+  max_message_length: 1900
+
+  # Use rich embeds instead of plain text
+  use_embeds: true
+
+  # Embed color (hex color code as integer)
+  embed_color: 0x4CAF50
+
+  # Split long messages into multiple messages
+  split_long_messages: true
+
+# Email settings
+email:
+  # Enable email notifications
+  enabled: false
+
+  # SMTP server configuration
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+
+  # Email credentials (loaded from environment variables)
+  # username: ""  # Now loaded from EMAIL_USERNAME in .env
+  # password: ""  # Now loaded from EMAIL_PASSWORD in .env
+
+  # Sender email address (loaded from EMAIL_FROM_ADDRESS in .env, defaults to username if not specified)
+  # from_address: ""  # Now loaded from .env
+
+  # List of recipient email addresses (loaded from EMAIL_TO_ADDRESSES in .env, comma-separated)
+  # to_addresses: []  # Now loaded from .env
+
+  # Email subject format (supports {date} placeholder)
+  subject_format: "Tech News Digest - {date}"
+
+  # Send HTML formatted emails
+  use_html: true
+
+  # Attach markdown report file to email
+  attach_markdown: false
+
+# Content formatting options
+formatting:
+  # Maximum number of items to include in Discord messages
+  discord_max_items: 5
+
+  # Maximum number of items to include in emails
+  email_max_items: 20
+
+  # Include statistics section
+  include_statistics: true
+
+  # Include summary section
+  include_summary: true
+
+  # Truncate long descriptions
+  truncate_descriptions: true
+
+  # Maximum description length when truncated
+  max_description_length: 200
+
+  # Include confidence scores
+  show_confidence_scores: false
+
+  # Include technical level indicators
+  show_technical_levels: true
+
+# Delivery settings
+delivery:
+  # Number of retry attempts for failed deliveries
+  retry_attempts: 3
+
+  # Delay between retry attempts (seconds)
+  retry_delay: 5
+
+  # Request timeout (seconds)
+  timeout: 30
+
+  # Verify SSL certificates
+  verify_ssl: true
+
+  # Rate limiting (minimum seconds between notifications)
+  rate_limit: 0
+
+# Channel-specific overrides
+channel_overrides:
+  discord:
+    # Override formatting for Discord
+    max_items: 3
+    include_full_urls: false
+    use_shortened_descriptions: true
+
+  email:
+    # Override formatting for email
+    max_items: 15
+    include_full_content: true
+    use_detailed_formatting: true
+
+# Testing and development
+testing:
+  # Enable test mode (doesn't actually send notifications)
+  test_mode: false
+
+  # Log notification content for debugging
+  log_content: false
+
+  # Save notification content to files
+  save_to_files: false
+
+  # Test notification recipients
+  test_discord_webhook: ""
+  test_email_addresses: []

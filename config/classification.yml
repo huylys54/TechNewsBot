@@ -1,0 +1,189 @@
+# Classification configuration for tech news content - IT and Computer Science focus
+categories:
+  Artificial Intelligence:
+    subcategories:
+      - Machine Learning
+      - Deep Learning
+      - Natural Language Processing
+      - Computer Vision
+      - Robotics
+      - AI Research
+      - Neural Networks
+    keywords:
+      - AI
+      - artificial intelligence
+      - machine learning
+      - neural networks
+      - deep learning
+      - transformer
+      - GPT
+      - ChatGPT
+      - LLM
+      - computer vision
+      - robotics
+      - automation
+      - algorithm
+      - NLP
+      - computer science
+
+  Software Development:
+    subcategories:
+      - Programming Languages
+      - Frameworks & Libraries
+      - DevOps & CI/CD
+      - Web Development
+      - Mobile Development
+      - Open Source
+      - Software Engineering
+    keywords:
+      - programming
+      - software
+      - development
+      - framework
+      - library
+      - coding
+      - developer
+      - GitHub
+      - Python
+      - JavaScript
+      - React
+      - Node.js
+      - Docker
+      - Kubernetes
+      - DevOps
+      - API
+      - database
+      - software engineering
+
+  Hardware & Systems:
+    subcategories:
+      - Processors & Chips
+      - Computing Hardware
+      - Semiconductors
+      - Computer Architecture
+      - Embedded Systems
+    keywords:
+      - CPU
+      - GPU
+      - processor
+      - chip
+      - hardware
+      - Intel
+      - AMD
+      - NVIDIA
+      - Apple Silicon
+      - M1
+      - M2
+      - semiconductor
+      - computer architecture
+      - embedded systems
+      - microprocessor
+
+  Cybersecurity:
+    subcategories:
+      - Data Breaches
+      - Vulnerabilities
+      - Security Tools
+      - Privacy
+      - Compliance
+      - Network Security
+    keywords:
+      - security
+      - cybersecurity
+      - hack
+      - hacker
+      - breach
+      - vulnerability
+      - privacy
+      - encryption
+      - malware
+      - ransomware
+      - phishing
+      - zero-day
+      - network security
+      - firewall
+
+  Cloud Computing & Infrastructure:
+    subcategories:
+      - Cloud Platforms
+      - Infrastructure as a Service
+      - Platform as a Service
+      - Software as a Service
+      - Distributed Systems
+    keywords:
+      - cloud
+      - AWS
+      - Azure
+      - Google Cloud
+      - GCP
+      - SaaS
+      - PaaS
+      - IaaS
+      - infrastructure
+      - serverless
+      - microservices
+      - distributed systems
+      - container
+
+  Data Science & Analytics:
+    subcategories:
+      - Big Data
+      - Data Analytics
+      - Business Intelligence
+      - Data Engineering
+      - Statistical Computing
+    keywords:
+      - data science
+      - big data
+      - analytics
+      - business intelligence
+      - data engineering
+      - statistics
+      - data analysis
+      - data mining
+      - database
+      - SQL
+      - NoSQL
+
+  Computer Networks & Internet:
+    subcategories:
+      - Network Protocols
+      - Internet Infrastructure
+      - Telecommunications
+      - Network Engineering
+    keywords:
+      - network
+      - internet
+      - protocol
+      - TCP/IP
+      - networking
+      - telecommunications
+      - bandwidth
+      - fiber optic
+      - 5G
+      - network engineering
+
+  Research & Academia:
+    subcategories:
+      - Computer Science Research
+      - Academic Papers
+      - University Research
+      - Technical Publications
+    keywords:
+      - research
+      - academic
+      - university
+      - computer science
+      - publication
+      - paper
+      - study
+      - technical
+      - arxiv
+
+# Classification settings
+settings:
+  confidence_threshold: 0.7
+  max_tags_per_item: 5
+  enable_ai_classification: true
+  fallback_to_rules: true
+  tech_focus_only: true

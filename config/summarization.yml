@@ -1,0 +1,87 @@
+# Summarization configuration for tech news content
+summary_settings:
+  # Maximum length for generated summaries (in words)
+  max_summary_length: 500
+
+  # Maximum number of key points to extract
+  max_key_points: 4
+
+  # Include technical analysis in summaries
+  include_technical_analysis: true
+
+  # Include impact assessment
+  include_impact_assessment: true
+
+  # Minimum confidence threshold for AI summaries
+  min_confidence_threshold: 0.7
+
+  # Use fallback method if AI summary confidence is below threshold
+  fallback_on_low_confidence: true
+
+# Model settings for AI summarization
+model_settings:
+  # Model to use
+  summary_model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
+  chunk_model: "gemma2-9b-it"
+
+  # Temperature for response generation (0.0 = deterministic, 1.0 = creative)
+  temperature: 0.3
+
+  # Maximum tokens for model response (reduced to fit within context limits)
+  max_tokens: 1200
+
+  # Maximum input content tokens (leaving room for prompts and output)
+  max_input_tokens: 4000
+
+  # Request timeout in seconds
+  timeout: 30
+
+# Content type specific settings
+news_settings:
+  # Focus areas for news summarization
+  focus_areas:
+    - "Key technological developments"
+    - "Business implications"
+    - "Market impact"
+    - "Technical specifications"
+    - "Timeline and availability"
+    - "Stakeholder perspectives"
+
+  # Preferred technical level for news summaries
+  default_technical_level: "intermediate"
+
+  # Include company/organization mentions
+  include_company_mentions: true
+
+paper_settings:
+  # Focus areas for research paper summarization
+  focus_areas:
+    - "Main research contribution"
+    - "Technical methodology"
+    - "Key findings and results"
+    - "Practical applications"
+    - "Novel aspects"
+    - "Comparison with existing work"
+
+  # Preferred technical level for paper summaries
+  default_technical_level: "advanced"
+
+  # Include author and institution information
+  include_author_info: true
+
+  # Include arxiv categories in analysis
+  include_categories: true
+
+# Output formatting options
+output_settings:
+  # Include confidence scores in output
+  include_confidence: true
+
+  # Include word count statistics
+  include_word_count: true
+
+  # Format for timestamps
+  timestamp_format: "%Y-%m-%d %H:%M:%S"
+
+  # Save intermediate processing results
+  save_intermediate_results: false

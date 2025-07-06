@@ -1,0 +1,184 @@
+# Report generation configuration for tech news digests
+
+report_settings:
+  # Title format for reports (supports {date} placeholder)
+  title_format: "Tech News Digest - {date}"
+
+  # Include statistics section in reports
+  include_statistics: true
+
+  # Include summary section in reports
+  include_summary: true
+
+  # Maximum number of items to include per category
+  max_items_per_category: 10
+
+  # Sort items by classification confidence
+  sort_by_confidence: true
+
+  # Minimum confidence threshold for including items
+  minimum_confidence: 0.1
+
+  # Include original descriptions
+  include_descriptions: true
+
+  # Include author information (for research papers)
+  include_authors: true
+
+  # Include URLs in reports
+  include_urls: true
+
+format_settings:
+  markdown:
+    # Include table of contents
+    include_toc: true
+
+    # Include metadata section
+    include_metadata: true
+
+    # Enable code syntax highlighting
+    code_highlighting: true
+
+    # Use emoji icons for categories
+    use_emoji_icons: false
+
+    # Maximum line length for formatting
+    max_line_length: 120
+
+  html:
+    # Include embedded CSS styles
+    include_css: true
+
+    # Enable responsive design
+    responsive_design: true
+
+    # Support dark mode
+    dark_mode_support: true
+
+    # Include JavaScript for interactivity
+    include_javascript: false
+
+    # Bootstrap CSS framework
+    use_bootstrap: false
+
+# Category ordering for reports (items will appear in this order)
+category_order:
+  - "Artificial Intelligence"
+  - "Software Development"
+  - "Hardware"
+  - "Cybersecurity"
+  - "Cloud Computing"
+  - "Startups & Business"
+  - "Social Media & Platforms"
+  - "Gaming"
+  - "Blockchain & Crypto"
+  - "Electric Vehicles & Transportation"
+  - "Other"
+
+# Category icons and descriptions
+category_metadata:
+  "Artificial Intelligence":
+    icon: "🤖"
+    description: "AI, ML, neural networks, and automation"
+    color: "#FF6B6B"
+
+  "Software Development":
+    icon: "💻"
+    description: "Programming, frameworks, and development tools"
+    color: "#4ECDC4"
+
+  "Hardware":
+    icon: "🔧"
+    description: "Processors, devices, and computing hardware"
+    color: "#45B7D1"
+
+  "Cybersecurity":
+    icon: "🔒"
+    description: "Security, privacy, and data protection"
+    color: "#96CEB4"
+
+  "Cloud Computing":
+    icon: "☁️"
+    description: "Cloud services, infrastructure, and platforms"
+    color: "#FECA57"
+
+  "Startups & Business":
+    icon: "💼"
+    description: "Funding, acquisitions, and business news"
+    color: "#FF9FF3"
+
+  "Social Media & Platforms":
+    icon: "📱"
+    description: "Social networks and platform updates"
+    color: "#54A0FF"
+
+  "Gaming":
+    icon: "🎮"
+    description: "Video games, gaming hardware, and esports"
+    color: "#5F27CD"
+
+  "Blockchain & Crypto":
+    icon: "₿"
+    description: "Cryptocurrency, blockchain, and Web3"
+    color: "#00D2D3"
+
+  "Electric Vehicles & Transportation":
+    icon: "🚗"
+    description: "EVs, autonomous driving, and transport tech"
+    color: "#FF6348"
+
+  "Other":
+    icon: "📰"
+    description: "General tech news and industry updates"
+    color: "#778CA3"
+
+# Content filtering and processing
+content_processing:
+  # Maximum title length for display
+  max_title_length: 100
+
+  # Maximum summary length for display
+  max_summary_length: 300
+
+  # Maximum number of key points to show
+  max_key_points: 5
+
+  # Include confidence scores in output
+  show_confidence_scores: true
+
+  # Include technical level indicators
+  show_technical_levels: true
+
+  # Include publication dates
+  show_dates: true
+
+  # Include source information
+  show_sources: true
+
+# Report output settings
+output_settings:
+  # Default output directory
+  output_directory: "data/reports"
+
+  # File naming pattern (supports placeholders)
+  filename_pattern: "digest_{timestamp}"
+
+  # Include timestamp in filenames
+  include_timestamp: true
+
+  # Create backup copies
+  create_backups: false
+
+  # Compress output files
+  compress_output: false
+
+# Email and sharing settings (for future use)
+sharing_settings:
+  # Include sharing buttons in HTML reports
+  include_share_buttons: false
+
+  # Generate permalink URLs
+  generate_permalinks: false
+
+  # Include QR codes for mobile access
+  include_qr_codes: false
