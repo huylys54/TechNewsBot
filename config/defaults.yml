@@ -1,0 +1,64 @@
+# Default configuration for Tech News Digest Bot
+
+digest_settings:
+  max_articles: 10
+  max_papers: 5
+  enable_content_processing: true
+  enable_classification: true
+  enable_summarization: true
+  enable_notifications: true
+  custom_keywords: []
+  days_back: 1
+
+scheduling:
+  enabled: false
+  cron_expression: "0 9 * * MON-FRI"
+  timezone: "UTC+7"
+  include_weekends: false
+  skip_if_empty: true
+
+monthly_papers:
+  enabled: true
+  send_day: 7
+  send_time: "09:00"
+  max_papers: 10
+
+output:
+  save_individual_files: true
+  keep_intermediate_files: true
+  backup_old_files: false
+  cleanup_after_days: 7
+  compress_old_files: false
+
+component_overrides:
+  fetcher:
+    max_articles: null
+    max_papers: null
+  classifier:
+    minimum_confidence: 0.1
+  summarizer:
+    max_summary_length: 700
+  report_generator:
+    max_items_per_category: 8
+  notifier:
+    discord_max_items: 4
+
+logging:
+  level: "INFO"
+  file_logging: true
+  console_logging: true
+  rotate_after_days: 7
+  max_file_size: 10
+
+error_handling:
+  continue_on_error: true
+  max_retries: 3
+  retry_delay: 5
+  notify_on_error: false
+  emergency_contact: ""
+
+development:
+  debug_mode: false
+  use_test_data: false
+  dry_run: false
+  save_debug_data: false

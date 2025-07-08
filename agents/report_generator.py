@@ -582,7 +582,7 @@ class TechNewsReportGenerator:
     
 
     def generate_toc_only_report(self, report: DigestReport, discord_urls: Optional[Dict[str, str]] = None,
-                                paper_urls: Optional[Dict[str, str]] = None) -> str:
+                                 paper_urls: Optional[Dict[str, str]] = None, is_monthly_papers: bool = False) -> str:
         """
         Generate a minimal markdown report with only table of contents.
         
@@ -590,7 +590,7 @@ class TechNewsReportGenerator:
             report: DigestReport object
             discord_urls: Optional dictionary mapping categories to Discord message URLs
             paper_urls: Optional dictionary mapping paper section names to Discord URLs
-            include_papers_sections: Whether to include papers sections in TOC
+            is_monthly_papers: Whether this is a monthly papers report
             
         Returns:
             Markdown string with only TOC
@@ -619,8 +619,7 @@ class TechNewsReportGenerator:
             category_count += 1
         
         # Add papers sections (always sent to Discord when there are papers)
-        papers_count = sum(len(items) for items in report.categories.values() if any(item.get("content", {}).get("authors") for item in items))
-        if papers_count > 0:
+        if is_monthly_papers or any(item.get("content", {}).get("type") == "academic paper" for items in report.categories.values() for item in items):
             if category_count > 0:
                 md.append("")  # Add space if there were categories above
             md.append("### Research Papers")

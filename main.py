@@ -19,6 +19,7 @@ load_dotenv()
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, EVENT_JOB_MISSED
 
 # Import our agents
 from agents.fetcher import ContentFetcher, FetchResult
@@ -62,16 +63,15 @@ class TechNewsDigestBot:
     
     def _setup_logging(self) -> logging.Logger:
         """Set up logging for the bot."""
-        # Create logs directory if it doesn't exist
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
-        
-        # Configure logging
+
+        # General logger
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.INFO)
         
         if not logger.handlers:
-            # File handler
+            # General file handler
             timestamp = datetime.now().strftime("%Y%m%d")
             log_file = log_dir / f"technews_bot_{timestamp}.log"
             file_handler = logging.FileHandler(log_file)
@@ -90,49 +90,52 @@ class TechNewsDigestBot:
             
             logger.addHandler(file_handler)
             logger.addHandler(console_handler)
+
+        # Scheduler logger
+        scheduler_logger = logging.getLogger('apscheduler')
+        scheduler_logger.setLevel(logging.INFO)
+        if not scheduler_logger.handlers:
+            scheduler_log_file = log_dir / "scheduler.log"
+            scheduler_file_handler = logging.FileHandler(scheduler_log_file)
+            scheduler_file_handler.setLevel(logging.INFO)
+            scheduler_formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            scheduler_file_handler.setFormatter(scheduler_formatter)
+            scheduler_logger.addHandler(scheduler_file_handler)
         
         return logger
     
+    def _deep_merge(self, source, destination):
+        """Deep merge two dictionaries."""
+        for key, value in source.items():
+            if isinstance(value, dict):
+                # get node or create one
+                node = destination.setdefault(key, {})
+                self._deep_merge(value, node)
+            else:
+                destination[key] = value
+        return destination
+
     def _load_config(self) -> Dict[str, Any]:
         """Load main configuration from file."""
         try:
+            with open("config/defaults.yml", 'r', encoding='utf-8') as f:
+                default_config = yaml.safe_load(f)
+        except Exception as e:
+            self.logger.error(f"Failed to load default config: {e}")
+            return {}
+
+        try:
             if os.path.exists(self.config_path):
                 with open(self.config_path, 'r', encoding='utf-8') as f:
-                    return yaml.safe_load(f)
+                    user_config = yaml.safe_load(f)
+                return self._deep_merge(user_config, default_config)
             else:
-                return self._get_default_config()
+                return default_config
         except Exception as e:
-            self.logger.warning(f"Failed to load config from {self.config_path}: {e}")
-            return self._get_default_config()
-
-    def _get_default_config(self) -> Dict[str, Any]:
-        """Get default main configuration."""
-        return {
-            "digest_settings": {
-                "max_articles": 10,
-                "max_papers": 5,
-                "enable_content_processing": True,
-                "enable_classification": True,
-                "enable_summarization": True,
-                "enable_notifications": True
-            },
-            "scheduling": {
-                "enabled": False,
-                "cron_expression": "0 9 * * MON-FRI",  # 9 AM on weekdays
-                "timezone": "UTC"
-            },
-            "monthly_papers": {
-                "enabled": False,
-                "send_day": 1,  # 1st of month
-                "send_time": "09:00",
-                "max_papers": 10
-            },
-            "output": {
-                "save_individual_files": True,
-                "keep_intermediate_files": True,
-                "backup_old_files": False
-            }
-        }
+            self.logger.warning(f"Failed to load user config from {self.config_path}: {e}")
+            return default_config
 
     def generate_digest(self,
                        max_articles: Optional[int] = None,
@@ -174,11 +177,18 @@ class TechNewsDigestBot:
             except Exception as e:
                 self.logger.warning(f"Could not load arXiv categories from config: {e}")
             
+            # Determine if monthly papers should be excluded
+            today = datetime.now()
+            # Run on the day specified in config, default to 1
+            monthly_send_day = self.config.get("monthly_papers", {}).get("send_day", 1)
+            is_monthly_run_day = today.day == monthly_send_day
+
             fetch_result: FetchResult = self.fetcher.fetch_all_content(
-                max_articles_per_feed=max_articles or 5,
-                max_arxiv_papers=max_papers or 10,
+                max_articles_per_feed=max_articles // 2 or 2,
+                max_arxiv_papers=max_papers // 2 or 1,
                 arxiv_categories=arxiv_categories,
-                arxiv_keywords=custom_keywords
+                arxiv_keywords=custom_keywords,
+                exclude_monthly_papers=not is_monthly_run_day
             )
             
             article_count = len(fetch_result.news)
@@ -429,7 +439,7 @@ class TechNewsDigestBot:
                     
                     try:
                         # Generate a TOC-only report with both category and paper section URLs
-                        toc_report = self.report_generator.generate_toc_only_report(report, category_urls, paper_section_urls, is_monthly_papers=True)
+                        toc_report = self.report_generator.generate_toc_only_report(report, category_urls, paper_section_urls, is_monthly_papers=False)
 
                         # Save TOC-only report
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -472,7 +482,7 @@ class TechNewsDigestBot:
     
     def run_scheduled_digest(self, max_articles: int, max_papers: int):
         """Run a scheduled digest generation."""
-        self.logger.info("Running scheduled digest generation...")
+        self.logger.info("Starting scheduled digest generation job...")
 
         results = self.generate_digest(
             max_articles=max_articles,
@@ -480,115 +490,77 @@ class TechNewsDigestBot:
         )
         
         if results["success"]:
-            self.logger.info(f"Scheduled digest completed successfully: {results['statistics']}")
+            self.logger.info(f"Scheduled digest job completed successfully. Stats: {results['statistics']}")
         else:
-            self.logger.error(f"Scheduled digest failed: {results['errors']}")
+            self.logger.error(f"Scheduled digest job failed. Errors: {results['errors']}")
         
         return results
 
     def run_monthly_papers_digest(self, max_papers: int):
-        """Run a scheduled monthly papers digest generation."""
-        self.logger.info("Running scheduled monthly papers digest generation...")
+        """
+        Run a scheduled monthly papers digest generation.
+        This job now runs the full daily digest but ensures monthly papers are included.
+        """
+        self.logger.info("Starting first-of-month combined digest generation job...")
 
-        # Check if monthly papers have already been sent this month
-        last_sent = self.notifier.message_tracker.monthly_papers_config.get("last_monthly_papers_sent")
-        if last_sent:
-            try:
-                last_sent_date = datetime.fromisoformat(last_sent)
-                if last_sent_date.year == datetime.now().year and last_sent_date.month == datetime.now().month:
-                    self.logger.info("Monthly papers already sent this month, skipping.")
-                    return {"success": True, "message": "Monthly papers already sent this month"}
-            except ValueError:
-                self.logger.warning("Invalid date format in last_monthly_papers_sent, proceeding anyway.")
+        # On the first day of the month, we run the full digest,
+        # but ensure that the monthly papers are included.
+        # The daily digest will automatically handle whether to include them or not.
+        results = self.generate_digest(
+            max_papers=max_papers,
+            # We can add other parameters if needed, e.g., to force-run even if not the first day
+        )
 
-        try:
-            # Fetch monthly papers
-            self.logger.info("Fetching monthly papers...")
-            fetch_result = self.fetcher.fetch_all_content(
-                max_articles_per_feed=0,  # Don't fetch news
-                max_arxiv_papers=max_papers,
-                arxiv_categories=[],
-                arxiv_keywords=[],
-                fetch_monthly_papers_only=True  # Only fetch HuggingFace papers
-            )
+        if results["success"]:
+            self.logger.info(f"Monthly combined digest job completed successfully. Stats: {results['statistics']}")
+        else:
+            self.logger.error(f"Monthly combined digest job failed. Errors: {results['errors']}")
 
-            if not fetch_result.papers:
-                self.logger.info("No monthly papers found, skipping.")
-                return {"success": True, "message": "No monthly papers found"}
+        return results
 
-            # Generate report
-            self.logger.info("Generating monthly papers report...")
-            content_data = {
-                "articles": [],
-                "papers": [paper for paper, _ in fetch_result.papers],
-                "classifications": [],
-                "summaries": []
-            }
-            report = self.report_generator.generate_monthly_papers_report(content_data)
-            report_path = self.report_generator.save_report(report, format="markdown")
-            self.logger.info(f"Generated monthly papers report: {report_path}")
+    def scheduler_listener(self, event):
+        """Listener for scheduler events."""
+        if event.exception:
+            self.logger.error(f"Job {event.job_id} crashed: {event.exception}")
+        else:
+            self.logger.info(f"Job {event.job_id} executed successfully")
 
-            # Send Discord notification
-            self.logger.info("Sending monthly papers notification to Discord...")
-            success = self.notifier.send_discord_notification(report.summary, report.title)
-
-            if success:
-                # Update last sent timestamp
-                self.notifier.message_tracker.update_last_monthly_papers_sent()
-                self.logger.info("Monthly papers sent successfully!")
-                return {"success": True, "message": "Monthly papers sent successfully"}
-            else:
-                self.logger.error("Failed to send monthly papers notification to Discord.")
-                return {"success": False, "message": "Failed to send monthly papers notification to Discord"}
-
-        except Exception as e:
-            self.logger.error(f"Failed to generate monthly papers digest: {e}")
-            return {"success": False, "message": f"Failed to generate monthly papers digest: {e}"}
-
-    def start_scheduler(self, max_articles: int, max_papers: int):
-        """Start the scheduled digest generation."""
-        scheduler = BlockingScheduler()
-
-        # Default timezone
-        timezone = "UTC"
-
-        # Daily digest schedule
+    def _add_daily_digest_job(self, scheduler: BlockingScheduler, max_articles: int, max_papers: int):
+        """Adds the daily digest job to the scheduler."""
         if self.config["scheduling"]["enabled"]:
             cron_expression = self.config["scheduling"]["cron_expression"]
             timezone = self.config["scheduling"]["timezone"]
 
-            # Parse cron expression (format: minute hour day month day_of_week)
             parts = cron_expression.split()
             if len(parts) != 5:
                 self.logger.error(f"Invalid cron expression: {cron_expression}")
                 return
 
-            minute, hour, day, month, day_of_week = parts
+            minute, hour, _, _, _ = parts
+            day_of_week = "*" if self.config["scheduling"].get("include_weekends", False) else "MON-FRI"
 
-            # Add the scheduled job
+            # The daily digest now handles the logic for monthly papers
             scheduler.add_job(
                 lambda: self.run_scheduled_digest(max_articles, max_papers),
                 CronTrigger(
                     minute=minute,
                     hour=hour,
-                    day=day,
-                    month=month,
                     day_of_week=day_of_week,
                     timezone=timezone
                 ),
                 id='digest_generation',
                 name='Tech News Digest Generation'
             )
-
             self.logger.info(f"Daily digest scheduler started with cron expression: {cron_expression}")
 
-        # Monthly papers schedule
+    def _add_monthly_papers_job(self, scheduler: BlockingScheduler):
+        """Adds the monthly papers job to the scheduler."""
         if self.config["monthly_papers"]["enabled"]:
             send_day = self.config["monthly_papers"]["send_day"]
             send_time = self.config["monthly_papers"]["send_time"]
             max_monthly_papers = self.config["monthly_papers"]["max_papers"]
+            timezone = self.config["scheduling"]["timezone"]
 
-            # Parse send time (format: HH:MM)
             time_parts = send_time.split(":")
             if len(time_parts) != 2:
                 self.logger.error(f"Invalid send time: {send_time}")
@@ -597,7 +569,6 @@ class TechNewsDigestBot:
             monthly_hour, monthly_minute = time_parts
             monthly_cron_expression = f"{monthly_minute} {monthly_hour} {send_day} * *"
 
-            # Add the monthly papers job
             scheduler.add_job(
                 lambda: self.run_monthly_papers_digest(max_monthly_papers),
                 CronTrigger(
@@ -611,11 +582,21 @@ class TechNewsDigestBot:
                 id='monthly_papers_generation',
                 name='Tech News Monthly Papers Generation'
             )
-
             self.logger.info(f"Monthly papers scheduler started with cron expression: {monthly_cron_expression}")
 
-        self.logger.info("Press Ctrl+C to stop the scheduler")
+    def start_scheduler(self, max_articles: int, max_papers: int):
+        """Start the scheduled digest generation."""
+        scheduler = BlockingScheduler()
+        scheduler.add_listener(self.scheduler_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED)
 
+        self._add_daily_digest_job(scheduler, max_articles, max_papers)
+        self._add_monthly_papers_job(scheduler)
+
+        if not scheduler.get_jobs():
+            self.logger.warning("No jobs scheduled. Exiting.")
+            return
+
+        self.logger.info("Press Ctrl+C to stop the scheduler")
         try:
             scheduler.start()
         except KeyboardInterrupt:

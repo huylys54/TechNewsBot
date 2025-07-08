@@ -15,8 +15,7 @@ from email import encoders
 import glob
 import json
 import yaml
-import requests # Keep requests for now, will remove later if not needed elsewhere
-import discord # Re-add discord import
+import discord
 from discord import SyncWebhook
 from dataclasses import dataclass
 from dotenv import load_dotenv
@@ -222,8 +221,6 @@ class TechNewsNotifier:
         self.logger = self._setup_logging()
         self.config = self._load_config()
         # Initialize enhanced webhook for capturing Discord message IDs
-        self.enhanced_webhook = DiscordWebhookWithMessageIds(config_path)
-        # Initialize message tracker for better URL management
         self.message_tracker = DiscordMessageTracker(config_path)
         
     def _setup_logging(self) -> logging.Logger:
@@ -293,170 +290,9 @@ class TechNewsNotifier:
             }
         }
     
-    def send_discord_notification(self, 
-                                 digest_content: str, 
-                                 title: str = "Tech News Digest") -> bool:
-        """
-        Send digest to Discord via webhook.
-        
-        Args:
-            digest_content: Markdown content of the digest.
-            title: Title for the notification.
-            report_path: Optional path to report file for upload.
-            
-        Returns:
-            True if successful, False otherwise.
-        """
-        if not self.config.discord.get("enabled", False):
-            self.logger.info("Discord notifications are disabled")
-            return False
-        
-        webhook_url = self.config.discord.get("webhook_url", "")
-        if not webhook_url:
-            webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "")
-        
-        if not webhook_url:
-            self.logger.error("Discord webhook URL not configured")
-            return False
-        
-        try:
-            # Format content for Discord
-            discord_content = self._format_for_discord(digest_content, title)
-            
-            if self.config.discord.get("use_embeds", True):
-                return self._send_discord_embed(webhook_url, discord_content, title)
-            else:
-                return self._send_discord_message(webhook_url, discord_content)
-                
-        except Exception as e:
-            self.logger.error(f"Failed to send Discord notification: {e}")
-            return False
     
-    def _format_for_discord(self, content: str, title: str) -> str:
-        """Format content for Discord with length limits."""
-        max_length = self.config.discord.get("max_message_length", 2000)
-        max_items = self.config.formatting.get("discord_max_items", 5)
-        
-        # Extract key sections
-        lines = content.split('\n')
-        formatted_lines = []
-        
-        # Add title
-        formatted_lines.append(f"# {title}")
-        formatted_lines.append("")
-        
-        # Add summary if enabled
-        if self.config.formatting.get("include_summary", True):
-            summary_section = False
-            for line in lines:
-                if line.startswith("## Summary"):
-                    summary_section = True
-                    continue
-                elif line.startswith("## ") and summary_section:
-                    break
-                elif summary_section and line.strip():
-                    formatted_lines.append(line)
-            formatted_lines.append("")
-        
-        # Add limited items from categories
-        current_category = None
-        items_in_category = 0
-        total_items = 0
-        
-        for line in lines:
-            if total_items >= max_items:
-                break
-                
-            if line.startswith("## ") and not line.startswith("## Summary") and not line.startswith("## Statistics"):
-                current_category = line
-                items_in_category = 0
-                formatted_lines.append(line)
-                formatted_lines.append("")
-            elif line.startswith("### ") and current_category and items_in_category < 2:
-                formatted_lines.append(line)
-                items_in_category += 1
-                total_items += 1
-            elif current_category and items_in_category <= 2 and not line.startswith("###"):
-                # Add content for current item
-                if line.startswith("**") or line.startswith("- ") or line.strip() == "---":
-                    formatted_lines.append(line)
-        
-        result = '\n'.join(formatted_lines)
-        
-        # Smart truncation if still too long
-        if len(result) > max_length:
-            # Try to truncate at word boundaries
-            truncated = result[:max_length-100]  # Leave more space for truncation message
-            
-            # Find the last complete sentence or line break
-            last_sentence = max(
-                truncated.rfind('.'),
-                truncated.rfind('\n'),
-                truncated.rfind('!'),
-                truncated.rfind('?')
-            )
-            
-            if last_sentence > len(truncated) * 0.7:  # If we found a good break point
-                result = truncated[:last_sentence + 1] + "\n\n... *Content truncated. Full digest available via link.*"
-            else:
-                # Fallback to word boundary
-                last_space = truncated.rfind(' ')
-                if last_space > len(truncated) * 0.8:
-                    result = truncated[:last_space] + "\n\n... *Content truncated. Full digest available via link.*"
-                else:
-                    result = truncated + "\n\n... *Content truncated. Full digest available via link.*"
-        
-        return result
     
-    def _send_discord_embed(self, webhook_url: str, content: str, title: str) -> bool:
-        """Send Discord notification using embeds."""
-        embed_data = {
-            "username": self.config.discord.get("username", "Tech News Bot"),
-            "embeds": [{
-                "title": title,
-                "description": content[:4096],  # Discord embed description limit
-                "color": self.config.discord.get("embed_color", 0x00ff00),
-                "timestamp": datetime.now().isoformat(),
-                "footer": {
-                    "text": "Tech News Digest Bot"
-                }
-            }]
-        }
-        
-        avatar_url = self.config.discord.get("avatar_url", "")
-        if avatar_url:
-            embed_data["avatar_url"] = avatar_url
-        
-        response = requests.post(
-            webhook_url, 
-            json=embed_data,
-            timeout=self.config.delivery.get("timeout", 30)
-        )
-        response.raise_for_status()
-        
-        self.logger.info("Discord embed notification sent successfully")
-        return True
     
-    def _send_discord_message(self, webhook_url: str, content: str) -> bool:
-        """Send Discord notification as plain message."""
-        message_data = {
-            "username": self.config.discord.get("username", "Tech News Bot"),
-            "content": content
-        }
-        
-        avatar_url = self.config.discord.get("avatar_url", "")
-        if avatar_url:
-            message_data["avatar_url"] = avatar_url
-        
-        response = requests.post(
-            webhook_url, 
-            json=message_data,
-            timeout=self.config.delivery.get("timeout", 30)
-        )
-        response.raise_for_status()
-        
-        self.logger.info("Discord message notification sent successfully")
-        return True
     
     def send_email_notification(self, 
                                digest_content: str, 
@@ -603,7 +439,8 @@ class TechNewsNotifier:
         
         # Send Discord notification
         if self.config.discord.get("enabled", False):
-            results["discord"] = self.send_discord_notification(digest_content, title)
+            # This is now handled by EnhancedDiscordDigestBot
+            pass
         
         # Send email notification
         if self.config.email.get("enabled", False):
@@ -1495,3 +1332,33 @@ class EnhancedDiscordDigestBot:
         lines.append("-" * 50)
         
         return "\n".join(lines) + "\n\n"
+
+    def send_simple_notification(self, content: str, title: str) -> Tuple[bool, Optional[str], Optional[int]]:
+        """
+        Sends a simple notification to Discord.
+
+        Args:
+            content: The content of the notification.
+            title: The title of the notification.
+
+        Returns:
+            A tuple containing a boolean indicating success, the Discord URL of the message, and the message ID.
+        """
+        if not self.config.get("discord", {}).get("enabled", False):
+            self.logger.info("Discord notifications are disabled, skipping simple notification.")
+            return False, None, None
+
+        self.logger.info(f"Sending simple notification to Discord: {title}")
+        
+        # Use the enhanced webhook to send the message
+        success, discord_url, message_id = self.enhanced_webhook.send_message_with_id(
+            content=f"**{title}**\n\n{content}",
+            category_name="Simple Notification"
+        )
+        
+        if success:
+            self.logger.info(f"Simple notification sent successfully. URL: {discord_url}")
+        else:
+            self.logger.error("Failed to send simple notification.")
+            
+        return success, discord_url, message_id

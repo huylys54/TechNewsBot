@@ -813,7 +813,7 @@ class ContentFetcher:
                          arxiv_categories: Optional[List[str]] = None,
                          arxiv_keywords: Optional[List[str]] = None,
                          arxiv_days_back: int = 7,
-                         fetch_monthly_papers_only: bool = False) -> FetchResult:
+                         exclude_monthly_papers: bool = False) -> FetchResult:
         """
         Fetch both news articles and arXiv papers (recent + top papers).
 
@@ -823,17 +823,14 @@ class ContentFetcher:
             arxiv_categories: arXiv categories to search.
             arxiv_keywords: Keywords to search for in arXiv.
             arxiv_days_back: Days to look back for papers.
-            fetch_monthly_papers_only: Only fetch HuggingFace top papers.
+            exclude_monthly_papers: Exclude HuggingFace top papers from the fetch.
 
         Returns:
             FetchResult object containing news, arxiv papers, and status.
         """
         self.logger.info("Starting comprehensive content fetch...")
 
-        news_articles = []
-        if not fetch_monthly_papers_only:
-            # Fetch news articles only if not fetching monthly papers
-            news_articles = self.news_fetcher.fetch_headlines(max_articles_per_feed)
+        news_articles = self.news_fetcher.fetch_headlines(max_articles_per_feed)
 
         # Load paper settings from config
         max_recent_per_category = 3
@@ -846,50 +843,43 @@ class ContentFetcher:
             self.logger.warning(f"Could not load paper settings from config: {e}")
 
         all_papers: List[Tuple[arxiv.Result, bool]] = []
-        if fetch_monthly_papers_only:
-            # 1. Only fetch top papers from HuggingFace if fetch_monthly_papers_only is True
-            self.logger.info("Fetching top papers from HuggingFace (monthly only)...")
-            top_papers = self.arxiv_fetcher.fetch_huggingface_top_papers(max_papers=max_top_papers)
-            if top_papers:
-                all_papers.extend((paper, True) for paper in top_papers)
-                self.logger.info(f"Added {len(top_papers)} top papers from HuggingFace")
-        else:
-            # 1. Fetch top papers from HuggingFace
+        # 1. Fetch top papers from HuggingFace, unless excluded
+        if not exclude_monthly_papers:
             self.logger.info("Fetching top papers from HuggingFace...")
             top_papers = self.arxiv_fetcher.fetch_huggingface_top_papers(max_papers=max_top_papers)
             if top_papers:
                 all_papers.extend((paper, True) for paper in top_papers)
                 self.logger.info(f"Added {len(top_papers)} top papers from HuggingFace")
 
-            # 2. Fetch recent papers by categories
-            if arxiv_categories:
-                self.logger.info("Fetching recent papers by categories...")
-                category_papers = self.arxiv_fetcher.fetch_papers(
-                    categories=arxiv_categories,
-                    max_papers=max_recent_per_category,  # Per category limit
-                    days_back=arxiv_days_back
-                )
-                all_papers.extend((paper, False) for paper in category_papers)
-                self.logger.info(f"Added {len(category_papers)} recent papers from categories")
+        # 2. Fetch recent papers by categories
+        if arxiv_categories:
+            self.logger.info("Fetching recent papers by categories...")
+            category_papers = self.arxiv_fetcher.fetch_papers(
+                categories=arxiv_categories,
+                max_papers=max_recent_per_category,  # Per category limit
+                days_back=arxiv_days_back
+            )
+            all_papers.extend((paper, False) for paper in category_papers)
+            self.logger.info(f"Added {len(category_papers)} recent papers from categories")
 
-            # 3. Fetch recent papers by keywords if specified
-            if arxiv_keywords:
-                keyword_papers = self.arxiv_fetcher.fetch_by_keywords(
-                    keywords=arxiv_keywords,
-                    max_papers=max_arxiv_papers // 2,
-                    days_back=arxiv_days_back
-                )
-                all_papers.extend((paper, False) for paper in keyword_papers)
-                self.logger.info(f"Added {len(keyword_papers)} recent papers from keywords")
+        # 3. Fetch recent papers by keywords if specified
+        if arxiv_keywords:
+            keyword_papers = self.arxiv_fetcher.fetch_by_keywords(
+                keywords=arxiv_keywords,
+                max_papers=max_arxiv_papers // 2,
+                days_back=arxiv_days_back
+            )
+            all_papers.extend((paper, False) for paper in keyword_papers)
+            self.logger.info(f"Added {len(keyword_papers)} recent papers from keywords")
 
-            # 4. If no categories or keywords specified, use default categories
-            if not arxiv_categories and not arxiv_keywords:
-                default_papers = self.arxiv_fetcher.fetch_papers(
-                    max_papers=max_recent_per_category,
-                    days_back=arxiv_days_back
-                )
-                all_papers.extend((paper, False) for paper in default_papers)
-                self.logger.info(f"Added {len(default_papers)} papers from default categories")
+        # 4. If no categories or keywords specified, use default categories
+        if not arxiv_categories and not arxiv_keywords:
+            default_papers = self.arxiv_fetcher.fetch_papers(
+                max_papers=max_recent_per_category,
+                days_back=arxiv_days_back
+            )
+            all_papers.extend((paper, False) for paper in default_papers)
+            self.logger.info(f"Added {len(default_papers)} papers from default categories")
 
         # Remove duplicates from arXiv papers (by URL)
         seen_urls = set()

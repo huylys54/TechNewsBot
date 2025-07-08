@@ -36,7 +36,7 @@ scheduling:
   # "0 9 * * MON-SUN" - 9 AM on weekdays
   # "0 8,18 * * *" - 8 AM and 6 PM daily
   # "0 9 * * MON" - 9 AM on Mondays only
-  cron_expression: "33 14 * * *"
+  cron_expression: "0 9 * * MON-FRI"
 
   # Timezone for scheduling
   timezone: "Asia/Saigon"
@@ -120,6 +120,13 @@ error_handling:
 
   # Emergency contact for critical errors
   emergency_contact: ""
+
+# Monthly papers configuration
+monthly_papers:
+  enabled: true
+  send_day: 1 # 1st of the month
+  send_time: "09:00"
+  max_papers: 10
 
 # Development and testing
 development:
