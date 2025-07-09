@@ -302,8 +302,18 @@ class TechNewsReportGenerator:
         
         for category in categories:
             if sort_by_confidence:
-                categories[category].sort(key=lambda x: x["confidence"], reverse=True)
-            
+                # Custom sort for papers: HuggingFace Top first, then by confidence
+                if "paper" in category.lower():
+                    categories[category].sort(
+                        key=lambda x: (
+                            "HuggingFace Top" in x.get("content", {}).get("source", ""),
+                            x["confidence"]
+                        ),
+                        reverse=True
+                    )
+                else:
+                    categories[category].sort(key=lambda x: x["confidence"], reverse=True)
+
             categories[category] = categories[category][:max_items]
         
         # Sort categories by predefined order

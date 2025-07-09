@@ -188,7 +188,8 @@ class TechNewsDigestBot:
                 max_arxiv_papers=max_papers // 2 or 1,
                 arxiv_categories=arxiv_categories,
                 arxiv_keywords=custom_keywords,
-                exclude_monthly_papers=not is_monthly_run_day
+                # exclude_monthly_papers=not is_monthly_run_day
+                exclude_monthly_papers=False
             )
             
             article_count = len(fetch_result.news)
@@ -243,7 +244,7 @@ class TechNewsDigestBot:
                     'link': paper.entry_id,
                     'pdf_url': paper.pdf_url,
                     'source': "arXiv (HuggingFace Top)" if is_top else "arXiv",
-                    'authors': [author.name for author in paper.authors],
+                    'authors': ', '.join([author.name for author in paper.authors]),
                     'published': paper.published.isoformat(),
                     'category': paper.primary_category,
                     'fetch_time': datetime.now().isoformat(),
@@ -612,7 +613,7 @@ def main():
     parser = argparse.ArgumentParser(description='Tech News Digest Bot')
     parser.add_argument('--generate', action='store_true', help='Generate a digest now')
     parser.add_argument('--schedule', action='store_true', help='Start scheduled digest generation')
-    parser.add_argument('--max-articles', type=int, help='Maximum number of articles per rss to fetch', default=2)
+    parser.add_argument('--max-articles', type=int, help='Maximum number of articles per rss to fetch', default=4)
     parser.add_argument('--max-papers', type=int, help='Maximum number of papers to fetch', default=5)
     parser.add_argument('--keywords', nargs='+', help='Custom keywords for filtering')
     parser.add_argument('--config', help='Path to configuration file')

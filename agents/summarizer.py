@@ -10,18 +10,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_together import ChatTogether
 from langchain_groq import ChatGroq
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from utils.rate_limiter import together_rate_limiter
 from utils.token_manager import token_manager
 from utils.robust_parser import robust_parser
 from utils.html_utils import clean_html
 from utils.paper_chunker import PaperChunker
-import time
 from arxiv import Result as PaperResult
 
 class ContentSummary(BaseModel):
     """Pydantic model for content summarization results."""
     title: str = Field(description="Original title of the content")
+    applications: Optional[str] = Field(description="Real-world applications of the research", default=None)
     summary: str = Field(description="Concise summary of the content")
     key_points: List[str] = Field(description="List of key points from the content")
     impact: str = Field(description="Potential impact or significance")
@@ -91,7 +91,7 @@ class TechContentSummarizer:
         )
 
         llm_chunker = ChatGroq(
-            api_key=api_keys[1],
+            api_key=SecretStr(api_keys[1]) if api_keys[1] else None,
             model=model_settings.get("chunk_model", "gemma2-9b-it"),
             temperature=model_settings.get("temperature", 0.3),
             max_tokens=model_settings.get("max_tokens", 600)
@@ -125,134 +125,139 @@ class TechContentSummarizer:
 
     def summarize_research_paper(self, paper: PaperResult, data_dir: str) -> ContentSummary:
         """
-        Enhanced research paper summarization with Markdown support and relevance-based chunk selection.
+        Summarizes a research paper using relevance-scored chunks with a section-aware,
+        dynamic selection strategy to ensure comprehensive coverage.
         """
         try:
-            if not self.llm_chunker:
-                paper_content = {
-                    "title": paper.title,
-                    "summary": paper.summary,
-                }
-                return self._create_fallback_summary(paper_content, "papers")
-                
+            if not self.llm_chunker or not self.llm_summarizer:
+                return self._create_fallback_summary({"title": paper.title, "summary": paper.summary}, "papers")
+
             chunker = PaperChunker()
             abstract = paper.summary
             markdown_content = self._get_paper_md(paper.get_short_id(), data_dir)
 
-            # Split markdown into chunks
+            if not markdown_content.strip():
+                self.logger.warning(f"Markdown for '{paper.title}' is empty. Summarizing abstract only.")
+                return self._summarize_paper_with_ai(paper, None)
+
             all_chunks = chunker.chunk_markdown(markdown_content)
             if not all_chunks:
-                raise ValueError("No valid chunks extracted from Markdown content")
+                self.logger.warning(f"No chunks from '{paper.title}'. Summarizing abstract only.")
+                return self._summarize_paper_with_ai(paper, None)
 
-            # Skip first 10%
-            total_chunks = len(all_chunks)
-            start_idx = int(total_chunks * 0.1)
-            selected_chunks = all_chunks[start_idx:]
+            # Score all chunks based on relevance to the abstract
+            scored_chunks = chunker.compute_relevance_scores(abstract, all_chunks)
+            
+            # Group chunks by their classified section type
+            sections = {}
+            for chunk in scored_chunks:
+                sec_type = chunk.get('type', 'other')
+                if sec_type not in sections:
+                    sections[sec_type] = []
+                sections[sec_type].append(chunk)
 
-            # Apply relevance scoring if abstract exists
-            if abstract:
-                selected_chunks = chunker.compute_relevance_scores(abstract, selected_chunks)
-                selected_chunks.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+            # Select the top N chunks from each section to ensure diversity
+            diverse_chunks = []
+            for sec_type, chunks_in_sec in sections.items():
+                # Sort chunks within the section by relevance
+                chunks_in_sec.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+                # Take top 2 from important sections, 1 from others
+                limit = 2 if sec_type in ['introduction', 'methodology', 'results', 'conclusion'] else 1
+                diverse_chunks.extend(chunks_in_sec[:limit])
+            
+            if not diverse_chunks:
+                self.logger.warning(f"No diverse chunks selected for '{paper.title}'. Summarizing abstract only.")
+                return self._summarize_paper_with_ai(paper, None)
 
-            print(f"Selected chunks: {selected_chunks}")
-            selected_chunks = selected_chunks[:10]  # Limit to top 10 relevant chunks
-
-            if not selected_chunks:
-                # Fallback to abstract-only summarization
-                return self._summarize_paper_with_ai(paper, abstract)
-
-            # Summarize chunks in parallel
+            # Summarize the selected diverse chunks in parallel
             chunk_summaries = []
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                futures = []
-                for i, chunk in enumerate(selected_chunks):
-                    # Add small delay to avoid rate limit bursts
-                    if i > 0:
-                        time.sleep(0.5)
-                    futures.append(executor.submit(
-                        self._summarize_chunk,
-                        chunk,
-                        paper.title,
-                        abstract
-                    ))
-                future_to_chunk = {future: chunk for future, chunk in zip(futures, selected_chunks)}
-                
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                future_to_chunk = {
+                    executor.submit(self._summarize_chunk_by_type, chunk, paper.title): chunk
+                    for chunk in diverse_chunks
+                }
                 for future in as_completed(future_to_chunk):
                     chunk = future_to_chunk[future]
                     try:
-                        result = future.result()
-                        chunk_summaries.append(result)
+                        summary_text = future.result()
+                        if summary_text:
+                            chunk_summaries.append({
+                                'type': chunk.get('type', 'other'),
+                                'summary': summary_text
+                            })
                     except Exception as e:
-                        self.logger.warning(f"Chunk summarization failed for {chunk['header']}: {e}")
-                        chunk_summaries.append({
-                            'header': chunk['header'],
-                            'type': chunk['type'],
-                            'summary': f"Summary unavailable: {e}"
-                        })
+                        self.logger.error(f"Chunk summarization failed for {chunk.get('header', 'Unknown')}: {e}")
 
-            # Combine chunk summaries
-            together_rate_limiter.wait_if_needed()
-            context = "\n\n".join(
-                f"### {s['header']} ({s['type']})\n{s['summary']}"
+            if not chunk_summaries:
+                self.logger.warning(f"All chunk summaries failed for '{paper.title}'. Summarizing abstract only.")
+                return self._summarize_paper_with_ai(paper, None)
+
+            # Combine chunk summaries for the final synthesis step
+            synthesis_context = "\n\n".join(
+                f"## Section: {s['type'].replace('_', ' ').title()}\n{s['summary']}"
                 for s in chunk_summaries
             )
-            context = token_manager.prepare_content_for_summarization(
-                context, max_tokens=3000, model_provider='together'
-            )
             
-            # Generate final paper summary
-            return self._summarize_paper_with_ai(paper, context)
+            return self._summarize_paper_with_ai(paper, synthesis_context)
 
         except Exception as e:
             self.logger.error(f"Paper summarization failed for '{paper.title}': {e}")
-            paper_content = {
-                "title": paper.title,
-                "summary": paper.summary,
-            }
-            return self._create_fallback_summary(paper_content, "papers")
+            return self._create_fallback_summary({"title": paper.title, "summary": paper.summary}, "papers")
 
-    def _summarize_chunk(self, chunk: Dict[str, Any], title: str, abstract: str) -> Dict[str, Any]:
-        """Summarize a single chunk with rate limiting and error handling."""
+    def _summarize_chunk_by_type(self, chunk: Dict[str, Any], title: str) -> str:
+        """Summarizes a single chunk using a prompt targeted to its section type."""
         if not self.llm_chunker:
-            return {
-                'header': chunk['header'],
-                'type': chunk['type'],
-                'summary': f"Fallback summary: {chunk['chunk_content'][:200]}..."
-            }
-            
+            return ""
+
         together_rate_limiter.wait_if_needed()
+        
         chunk_content = token_manager.prepare_content_for_summarization(
-            chunk['chunk_content'], max_tokens=1000, model_provider='groq'
+            chunk['chunk_content'], max_tokens=1500, model_provider='groq'
         )
-        prompt = self._get_chunk_prompt(title, abstract, chunk_content)
+        section_type = chunk.get('type', 'other')
+        
+        prompt = self._get_targeted_chunk_prompt(title, section_type, chunk_content)
         messages = [
-            SystemMessage(content="You are an advanced language model tasked with summarizing academic papers. Respond with concise, informative summaries only."),
+            SystemMessage(content="You are an academic assistant. Your task is to summarize a specific section of a research paper based on a targeted prompt. Focus only on the information requested."),
             HumanMessage(content=prompt)
         ]
+        
         try:
             response = self.llm_chunker.invoke(messages)
             summary_text = response.content if hasattr(response, 'content') else str(response)
-            return {
-                'header': chunk['header'],
-                'type': chunk['type'],
-                'summary': summary_text.strip()
-            }
+            return summary_text.strip()
         except Exception as e:
-            raise Exception(f"Failed to summarize chunk {chunk['header']}: {e}")
+            self.logger.warning(f"Could not summarize chunk for paper '{title}': {e}")
+            return ""
 
-    def _get_chunk_prompt(self, title: str, abstract: str, chunk_content: str) -> str:
-        prompt = f"""
-        Your task is to read and summarize the following section refer to the abstraction of a research paper.
-        Focus on extracting the key ideas, main arguments, and essential findings while maintaining clarity and coherence.
-        The summary should be concise, approximately 3-5 sentences long, and should capture the essence of the text without losing important details.
-        Here is the context to summarize:
-        Paper Title: {title} \n
-        Abstract: {abstract} \n
-        Section: {chunk_content} \n
-        Provide the summary below:
+    def _get_targeted_chunk_prompt(self, title: str, section_type: str, chunk_content: str) -> str:
+        """Generates a targeted prompt for summarizing a chunk based on its section type."""
+        
+        prompts = {
+            'introduction': "Based on the introduction text below, what is the core research problem, the key question the authors are trying to answer, and their main objective?",
+            'methodology': "Based on the methodology section below, describe the primary methods, techniques, and models used in this research. Focus on the 'how', not the results.",
+            'results': "Based on the results section below, what are the main experimental findings and key quantitative or qualitative results? Be specific and data-driven.",
+            'conclusion': "Based on the conclusion and discussion below, what are the main takeaways, the authors' interpretation of the results, and the potential implications or future directions mentioned?",
+            'abstract': "Summarize the abstract in 2-3 sentences, capturing the essence of the paper.",
+            'related_work': "Briefly describe the main related works mentioned and how this paper differs or builds upon them.",
+            'other': "Provide a concise summary of the following text from the research paper."
+        }
+        
+        instruction = prompts.get(section_type, prompts['other'])
+
+        return f"""
+        Paper Title: {title}
+        Section Type: {section_type.replace('_', ' ').title()}
+
+        Instruction: {instruction}
+
+        Content of the chunk to summarize:
+        ---
+        {chunk_content}
+        ---
+
+        Provide a concise summary based *only* on the content of the chunk provided.
         """
-
-        return prompt
 
     def _summarize_news_with_ai(self, article: Dict[str, str], content: Optional[str]) -> ContentSummary:
         full_content = content or article.get('content', '') or article.get('description', '')
@@ -268,7 +273,7 @@ class TechContentSummarizer:
 
         Instructions:
         1. Create a concise summary (max 500 words)
-        2. Extract at least 2 key points
+        2. Extract at least 2 key points, using easy-to-understand language
         3. Assess the potential impact
         4. Determine the technical complexity level
         5. Provide a confidence score
@@ -296,70 +301,80 @@ class TechContentSummarizer:
                 content_text, original_title=article.get('title', '')
             )
             return ContentSummary(
-                title=parsed_result['title'],
-                summary=parsed_result['summary'],
-                key_points=parsed_result['key_points'],
-                impact=parsed_result['impact'],
-                technical_level=parsed_result['technical_level'],
-                confidence=parsed_result['confidence']
+                title=parsed_result.get('title', article.get('title', '')),
+                summary=parsed_result.get('summary', ''),
+                key_points=parsed_result.get('key_points', []),
+                impact=parsed_result.get('impact', ''),
+                technical_level=parsed_result.get('technical_level', 'intermediate'),
+                confidence=parsed_result.get('confidence', 0.5),
+                applications=parsed_result.get('applications', None)
             )
         except Exception as e:
             self.logger.warning(f"LLM summarization failed: {e}")
             return self._create_fallback_summary(article, "news")
 
     def _summarize_paper_with_ai(self, paper: PaperResult, content: Optional[str]) -> ContentSummary:
-
+        """
+        Generates the final, structured summary of a research paper by synthesizing
+        section summaries or using the abstract as a fallback.
+        """
         abstract = paper.summary
         
-        if content:
-            # If context is provided, combine abstract and context
-            combined_content = f"{abstract}\n\n{content}" if abstract else content
+        if not content:
+            self.logger.warning(f"No synthesized content for '{paper.title}'. Using abstract for final summary.")
+            processed_context = token_manager.prepare_content_for_summarization(
+                abstract, max_tokens=3000, model_provider='together'
+            )
+            context_source_description = "This summary is based on the paper's abstract."
         else:
-            # If no context, use abstract only
-            combined_content = abstract
-            
-        processed_context = token_manager.prepare_content_for_summarization(
-            combined_content, max_tokens=3000, model_provider='together'
-        )
-        prompt_text = f"""
-        Paper Metadata:
-        Title: {paper.title}
-        Authors: {', '.join([author.name for author in paper.authors]) if paper.authors else 'Unknown'}
-        Categories: {', '.join(paper.categories) if isinstance(paper.categories, list) else paper.categories}
+            processed_context = token_manager.prepare_content_for_summarization(
+                content, max_tokens=4000, model_provider='together'
+            )
+            context_source_description = "This summary was synthesized from key sections of the paper:"
 
-        Content: {processed_context}
+        prompt_text = f"""
+        You are an expert researcher and technical analyst. Your task is to create a high-quality, structured summary of a research paper.
+
+        Paper Metadata:
+        - Title: {paper.title}
+        - Authors: {', '.join([author.name for author in paper.authors]) if paper.authors else 'N/A'}
+        - Original Abstract (for reference only): {abstract}
+
+        {context_source_description}
+        ---
+        {processed_context}
+        ---
 
         Instructions:
-        1. Identify the core research problem and methodology
-        2. Highlight significant findings
-        3. Focus on novel contributions
-        4. Keep summary concise (250-300 words)
-        5. Extract at least 2 key technical points
-        6. Assess impact and applications
-        7. Rate technical complexity
+        1.  **Narrative Summary:** Write a narrative summary (250-300 words) that tells the story of the research. Start with the core problem, explain the proposed method, and conclude with the primary outcomes. This should be for a technical audience who has not read the paper. Do NOT simply rephrase the original abstract.
+        2.  **Key Points:** Extract exactly 3-5 distinct and specific takeaways. Each point must be a complete sentence and a concrete finding or contribution. Do not use generic statements. These points should be different from the narrative summary.
+        3.  **Impact & Applications:** Briefly describe the potential impact of this research and its real-world applications.
+        4.  **Technical Level:** Rate the technical complexity as "Beginner", "Intermediate", or "Advanced".
+        5.  **Confidence Score:** Provide a confidence score (0.0 to 1.0) for the summary quality.
 
-        Respond with valid JSON:
+        Respond with a valid JSON object matching this structure exactly:
         {{
-            "title": "paper title",
-            "applications": "real-world applications",
-            "summary": "concise overall summary",
-            "key_points": ["point 1", "point 2", ...],
-            "impact": "impact analysis",
-            "technical_level": "beginner/intermediate/advanced",
-            "confidence": 0.85
+            "title": "{paper.title}",
+            "applications": "concise description of real-world applications",
+            "summary": "The narrative summary as described in instruction #1.",
+            "key_points": [
+                "A specific, concrete key point.",
+                "Another distinct, data-driven finding."
+            ],
+            "impact": "A brief analysis of the research's potential impact.",
+            "technical_level": "Beginner/Intermediate/Advanced",
+            "confidence": 0.9
         }}
         """
         messages = [
-            SystemMessage(content="You are an expert researcher and technical analyst. Always respond with valid JSON."),
+            SystemMessage(content="You are an expert researcher and technical analyst. Always respond with valid JSON and nothing else."),
             HumanMessage(content=prompt_text)
         ]
+        
         together_rate_limiter.wait_if_needed()
         if self.llm_summarizer is None:
-            paper_content = {
-                    "title": paper.title,
-                    "summary": paper.summary,
-                }
-            return self._create_fallback_summary(paper_content, "papers")
+            return self._create_fallback_summary({"title": paper.title, "summary": paper.summary}, "papers")
+
         try:
             response = self.llm_summarizer.invoke(messages)
             content_text = response.content if hasattr(response, 'content') else str(response)
@@ -367,38 +382,39 @@ class TechContentSummarizer:
                 content_text, original_title=paper.title
             )
             return ContentSummary(
-                title=parsed_result['title'],
-                summary=parsed_result['summary'],
-                key_points=parsed_result['key_points'],
-                impact=parsed_result['impact'],
-                technical_level=parsed_result['technical_level'],
-                confidence=parsed_result['confidence']
+                title=parsed_result.get('title', paper.title),
+                summary=parsed_result.get('summary', 'Summary not available.'),
+                key_points=parsed_result.get('key_points', []),
+                impact=parsed_result.get('impact', 'Impact analysis not available.'),
+                technical_level=parsed_result.get('technical_level', 'intermediate'),
+                confidence=parsed_result.get('confidence', 0.5),
+                applications=parsed_result.get('applications', 'Not specified.')
             )
         except Exception as e:
-            self.logger.warning(f"LLM paper summarization failed: {e}")
-            paper_content = {
-                    "title": paper.title,
-                    "summary": paper.summary,
-                }
-            return self._create_fallback_summary(paper_content, "papers")
+            self.logger.error(f"LLM paper summarization failed for '{paper.title}': {e}")
+            return self._create_fallback_summary({"title": paper.title, "summary": paper.summary}, "papers")
 
-    def _create_fallback_summary(self, content: Dict[str, str], content_type: str = "news") -> Any:
+    def _create_fallback_summary(self, content: Dict[str, str], content_type: str = "news") -> ContentSummary:
         title = content.get('title', 'Unknown ' + ('Article' if content_type == "news" else 'Paper'))
         text = clean_html(content.get('description', '') or content.get('summary', '') or content.get('abstract', ''))
         summary = text[:300] if len(text) > 300 else text
         if not summary:
-            summary = f"{content_type} about {title}"
+            summary = f"A {content_type} about {title}"
+        
         sentences = [s.strip() for s in text.split('.') if s.strip() and len(s.strip()) > 20]
-        key_points = sentences[:3] if sentences else [f"Content discusses {title.lower()}"]
-        if content_type == "news":
-            return ContentSummary(
-                title=title,
-                summary=summary,
-                key_points=key_points,
-                impact="Technology industry impact",
-                technical_level="intermediate",
-                confidence=0.5
-            )
+        key_points = sentences[:3] if sentences else [f"Content discusses {title.lower()}."]
+        
+        impact = "Technology industry impact" if content_type == "news" else "Impact analysis not available."
+        
+        return ContentSummary(
+            title=title,
+            summary=summary,
+            key_points=key_points,
+            impact=impact,
+            technical_level="intermediate",
+            confidence=0.5,
+            applications="Applications not specified."
+        )
 
     def summarize_batch(self, content_list: List[Any], 
                        content_texts: Optional[List[str]] = None,

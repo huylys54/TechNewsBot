@@ -703,7 +703,7 @@ class ArxivFetcher:
                 "abstract": paper.summary,
                 "link": paper.entry_id,
                 "pdf_url": paper.pdf_url,
-                "authors": [author.name for author in paper.authors],
+                "authors": ', '.join([author.name for author in paper.authors]),
                 "published": paper.published.isoformat(),
                 "category": paper.primary_category,
                 "fetch_time": datetime.now().isoformat(),

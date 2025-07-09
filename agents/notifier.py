@@ -1186,7 +1186,7 @@ class EnhancedDiscordDigestBot:
                         split_point = word_break
             
             # Create the part
-            part_content = remaining_content[:split_point] + "\n\n... *[Continued in next message]*"
+            part_content = remaining_content[:split_point]
             parts.append((part_content, f"{base_name}_part_{part_number}"))
             
             # Update remaining content
