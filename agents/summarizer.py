@@ -2,10 +2,11 @@ import logging
 import os
 import time
 from typing import Dict, List, Optional, Any
-from datetime import datetime 
+from datetime import datetime
 import json
 import yaml
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_together import ChatTogether
@@ -460,6 +461,9 @@ class TechContentSummarizer:
         for content, summary in zip(content_list, summaries):
             result = {**content, 'summary_data': summary.model_dump(), 'summary': summary.summary, 'timestamp': datetime.now().isoformat()}
             results.append(result)
+        p = Path(filepath)
+        if not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as file:
             json.dump(results, file, indent=2, ensure_ascii=False)
         self.logger.info(f"Saved {len(summaries)} summaries to {filepath}")

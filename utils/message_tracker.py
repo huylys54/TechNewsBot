@@ -11,6 +11,7 @@ import yaml
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+from pathlib import Path
 
 load_dotenv()
 
@@ -68,6 +69,11 @@ class DiscordMessageTracker:
         try:
             timestamp = datetime.now().isoformat()
             self.monthly_papers_config['last_monthly_papers_sent'] = timestamp
+            
+            p = Path(self.monthly_papers_config_path)
+            if not p.parent.exists():
+                p.parent.mkdir(parents=True, exist_ok=True)
+            
             with open(self.monthly_papers_config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(self.monthly_papers_config, f)
             self.logger.info(f"Updated last_monthly_papers_sent to {timestamp}")

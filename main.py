@@ -278,6 +278,9 @@ class TechNewsDigestBot:
                     os.makedirs("data/content", exist_ok=True)
                     arxiv_filepath = os.path.join("data/content", arxiv_filename)
                     
+                    p = Path(arxiv_filepath)
+                    if not p.parent.exists():
+                        p.parent.mkdir(parents=True, exist_ok=True)
                     with open(arxiv_filepath, 'w', encoding='utf-8') as file:
                         json.dump(papers_as_dicts, file, indent=2, ensure_ascii=False)
                     processed_files['arxiv_content_path'] = arxiv_filepath
@@ -286,6 +289,9 @@ class TechNewsDigestBot:
                     combined_filename = f"{prefix}_combined.json"
                     combined_filepath = os.path.join("data/content", combined_filename)
                     
+                    p = Path(combined_filepath)
+                    if not p.parent.exists():
+                        p.parent.mkdir(parents=True, exist_ok=True)
                     with open(combined_filepath, 'w', encoding='utf-8') as file:
                         json.dump(processed_content, file, indent=2, ensure_ascii=False)
                     processed_files['combined_content_path'] = combined_filepath
@@ -447,6 +453,9 @@ class TechNewsDigestBot:
                         toc_report_path = f"data/reports/toc_digest_{timestamp}.md"
                         os.makedirs("data/reports", exist_ok=True)
                         
+                        p = Path(toc_report_path)
+                        if not p.parent.exists():
+                            p.parent.mkdir(parents=True, exist_ok=True)
                         with open(toc_report_path, 'w', encoding='utf-8') as f:
                             f.write(toc_report)
                         

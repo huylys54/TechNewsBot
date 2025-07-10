@@ -11,6 +11,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import time
 from bs4 import BeautifulSoup
+from pathlib import Path
 
 
 class ContentParser:
@@ -162,6 +163,9 @@ class ContentParser:
         os.makedirs("data/content", exist_ok=True)
         filepath = os.path.join("data/content", filename)
         
+        p = Path(filepath)
+        if not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as file:
             json.dump(articles, file, indent=2, ensure_ascii=False)
         

@@ -319,6 +319,9 @@ class NewsFetcher:
         os.makedirs("data/articles", exist_ok=True)
         filepath = os.path.join("data/articles", filename)
         
+        p = pathlib.Path(filepath)
+        if not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as file:
             json.dump(articles, file, indent=2, ensure_ascii=False)
         
@@ -713,6 +716,9 @@ class ArxivFetcher:
             result["source"] = "arXiv (HuggingFace Top)" if is_top else "arXiv"
 
             results.append(result)
+        p = pathlib.Path(filepath)
+        if not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as file:
             json.dump(results, file, indent=2, ensure_ascii=False)
 
@@ -737,6 +743,8 @@ class ArxivFetcher:
         md_text = pymupdf4llm.to_markdown(filename, pages=range(num_pages))
         doc.close()  # Close the document to release the file
         md_path = pathlib.Path(self.dir_path, filename.replace('.pdf', '.md'))
+        if not md_path.parent.exists():
+            md_path.parent.mkdir(parents=True, exist_ok=True)
         md_path.write_bytes(md_text.encode())
         os.remove(filename)  # Remove PDF after conversion
         return str(md_path)

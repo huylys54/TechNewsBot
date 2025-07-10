@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 import json
 import yaml
+from pathlib import Path
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 from pydantic import BaseModel, Field
@@ -306,8 +307,11 @@ Classification:"""
             filename = f"classifications_{timestamp}.json"
         
         # Ensure data directory exists
-        os.makedirs("data/classifications", exist_ok=True)
         filepath = os.path.join("data/classifications", filename)
+        
+        p = Path(filepath)
+        if not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
         
         # Combine content with classifications
         results = []

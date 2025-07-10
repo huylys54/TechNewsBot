@@ -583,6 +583,9 @@ class TechNewsReportGenerator:
             # For now, just use markdown (HTML generation can be added later)
             content = self.generate_markdown_report(report)
         
+        p = Path(output_path)
+        if not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(content)
         
