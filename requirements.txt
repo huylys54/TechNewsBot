@@ -143,7 +143,7 @@ python-multipart==0.0.20
 python-oxmsg==0.0.2
 python-pptx==1.0.2
 pytz==2025.2
-pywin32==310
+pywin32==310; sys_platform == 'win32'
 pyyaml==6.0.2
 rapidfuzz==3.13.0
 referencing==0.36.2
@@ -156,7 +156,7 @@ rtree==1.4.0
 safetensors==0.5.3
 scikit-image==0.25.2
 scikit-learn==1.7.0
-scipy==1.16.0
+scipy>=1.13.0
 semchunk==2.2.2
 sentence-transformers==4.1.0
 sgmllib3k==1.0.0
