@@ -2,7 +2,7 @@ name: Daily Tech News Digest
 
 on:
   schedule:
-    - cron: '0 2 * * MON-FRI'  # 2 AM UTC daily (9 AM UTC+7)
+    - cron: '0 2 * * 1-5'  # 2 AM UTC daily (9 AM UTC+7)
   workflow_dispatch:
 
 jobs:
