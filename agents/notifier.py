@@ -994,23 +994,8 @@ class EnhancedDiscordDigestBot:
                         messages_to_send.extend(split_messages)
             
             # 4. Process paper categories (paper-only categories)
-            paper_only_categories = set()
-            for category, paper_items in digest.categories_papers.items():
-                if paper_items and category not in digest.categories_news:
-                    paper_only_categories.add(category)
-                    emoji = emoji_map.get(category, "📚") # Use paper emoji for paper-only categories
-                    
-                    # Create category header for paper-only category
-                    category_header = f"## {emoji} {category} ({len(paper_items)} papers)"
-                    category_header = self._ensure_message_length(category_header)
-                    messages_to_send.append((category_header, category))
-                    
-                    # Create individual paper messages
-                    for i, item in enumerate(paper_items, 1):
-                        item_message = self._format_single_item(item)
-                        # Split long item messages if needed
-                        split_messages = self._split_long_message(item_message, f"{category}_paper_{i}")
-                        messages_to_send.extend(split_messages)
+            # Removed processing for paper-only categories to avoid duplication.
+            # All papers are now handled in the grouped "Research Papers" sections.
             
             # 5. Process grouped paper sections (HuggingFace and arXiv)
             
@@ -1233,17 +1218,7 @@ class EnhancedDiscordDigestBot:
                     lines.append(f"- {category} (Link N/A)")
             lines.append("")
 
-        # Add paper-only categories to TOC
-        paper_only_categories = [cat for cat in digest.categories_papers.keys() if cat not in digest.categories_news]
-        if paper_only_categories:
-            lines.append("### 🔬 **Paper Categories**:")
-            for category in sorted(paper_only_categories):
-                url = category_urls.get(category)
-                if url:
-                    lines.append(f"- [{category}]({url})")
-                else:
-                    lines.append(f"- {category} (Link N/A)")
-            lines.append("")
+        # Removed "Paper Categories" from TOC to avoid duplication.
 
         # Add grouped paper sections to TOC
         if paper_section_urls:
